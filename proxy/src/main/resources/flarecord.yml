@@ -1,0 +1,70 @@
+# Flarecord feature configuration
+# This file contains all of Flarecord's extended runtime options.
+# Values here override the equivalent values from velocity.yml where applicable.
+
+general:
+  # Toggle the entire Flarecord feature layer. Keep this enabled for normal proxy use.
+  enabled: true
+
+  # Enable additional debug logging for troubleshooting.
+  debug: false
+
+  logging:
+    # Console log level for proxy logs.
+    console: "INFO"
+
+    # Track player connection activity in the logs.
+    player-connections: true
+
+performance:
+  # Use asynchronous processing when tasks are safe to run away from the main event loop.
+  async-processing: true
+
+  # Limited concurrency settings for background jobs.
+  worker-threads: 2
+
+  # Maximum queue size for internal work items.
+  queue-limit: 2048
+
+  # Scheduling strategy used for bounded job execution.
+  scheduling: "bounded"
+
+security:
+  anti-bot:
+    # Enforce anti-bot protections for connection floods and repeated reconnects.
+    enabled: true
+
+    # Max simultaneous connections per IP before temporary blocking.
+    max-connections-per-ip: 20
+
+    # Length of temporary blocking for abusive addresses.
+    temporary-block-duration-seconds: 120
+
+  join-rate-limit:
+    max-joins-per-minute: 30
+    max-joins-per-ip: 10
+
+queues:
+  # Built-in queue support for player admission.
+  enabled: true
+  max-size: 1000
+
+  # Permission required to jump ahead in the queue.
+  priority-permission: "flarecord.queue.priority"
+
+motd:
+  enabled: true
+
+  # Two independent MOTD lines, each supporting MiniMessage.
+  line-1: "<#09add3>Flarecord"
+  line-2: "<#8ecae6>Better Velocity"
+
+animations:
+  enabled: true
+  default-animation: "default"
+
+messages:
+  # Queue and connection notifications sent to players.
+  queue-position: "<gray>You are #<queue_position> in queue</gray>"
+  connection-limited: "<red>Too many connections from this IP</red>"
+  queue-join: "<green>You have joined the queue.</green>"

@@ -40,11 +40,13 @@ import com.velocitypowered.proxy.protocol.packet.LegacyDisconnect;
 import com.velocitypowered.proxy.protocol.packet.LegacyHandshakePacket;
 import com.velocitypowered.proxy.protocol.packet.LegacyPingPacket;
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelFutureListener;
 import io.netty.util.concurrent.ScheduledFuture;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import me.firesmasher.flarecord.security.IpConnectionGuard;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.apache.logging.log4j.LogManager;
@@ -139,6 +141,17 @@ public class HandshakeSessionHandler implements MinecraftSessionHandler {
     }
 
     final InetAddress address = ((InetSocketAddress) connection.getRemoteAddress()).getAddress();
+    final IpConnectionGuard connectionGuard = server.getFlarecordRuntime().getConnectionGuard();
+    if (!connectionGuard.tryAcquire(address)) {
+      connection.setState(StateRegistry.LOGIN);
+      ic.disconnectQuietly(Component.text(
+          "Too many concurrent connections from your address. Try again later.",
+          NamedTextColor.RED));
+      return;
+    }
+    connection.getChannel().closeFuture().addListener(
+        (ChannelFutureListener) ignored -> connectionGuard.release(address));
+
     if (!server.getIpAttemptLimiter().attempt(address)) {
       // Bump connection into correct protocol state so that we can send the disconnect packet.
       connection.setState(StateRegistry.LOGIN);

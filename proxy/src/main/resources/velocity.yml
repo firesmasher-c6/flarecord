@@ -1,0 +1,110 @@
+# Flarecord proxy configuration
+# This file is the active primary config file for the proxy.
+# Velocity's default-velocity.toml remains as a fallback template for migration and compatibility.
+
+# Config version. Do not change this value.
+config-version: "2.9"
+
+# What port should the proxy be bound to? By default, we bind to all addresses on 25565.
+bind: "0.0.0.0:25565"
+
+# MOTD shown in the server list. MiniMessage is supported.
+motd: "<#09add3>A Flarecord proxy"
+
+# Displayed maximum player count in the server list.
+show-max-players: 500
+
+# Authenticate players with Mojang. Keep this enabled for the normal secure setup.
+online-mode: true
+
+# Enforce the public key security standard.
+force-key-authentication: true
+
+# If the client's ISP/AS differs from Mojang's auth server, kick the player.
+prevent-client-proxy-connections: false
+
+# Should we forward IP addresses and other data to backend servers?
+# Supported values: NONE, LEGACY, BUNGEEGUARD, MODERN
+player-info-forwarding-mode: "NONE"
+
+# If you use modern or BungeeGuard forwarding, this file contains the shared secret.
+# The file must be UTF-8 and non-empty.
+forwarding-secret-file: "forwarding.secret"
+
+# Announce whether your network supports Forge.
+announce-forge: false
+
+# If enabled and the proxy is online mode, duplicate connection attempts kick the existing player.
+kick-existing-players: false
+
+# Show a sample of online players on hover over the player count in the server list.
+sample-players-in-ping: false
+
+# Replace player IPs with <ip address withheld> in logs when disabled.
+enable-player-address-logging: true
+
+# Ping passthrough behavior for backend responses.
+ping-passthrough:
+  version: false
+  players: false
+  description: false
+  favicon: false
+  modinfo: false
+
+# Packet limiter for abusive client traffic.
+packet-limiter:
+  interval: 7
+  packets-per-second: -1
+  bytes-per-second: -1
+  decompressed-bytes-per-second: 5242880
+
+# Configure backend servers here. Each key is a server name and each value is an address.
+servers:
+  lobby: "127.0.0.1:30066"
+  factions: "127.0.0.1:30067"
+  minigames: "127.0.0.1:30068"
+  try:
+    - "lobby"
+
+# Forced host routing.
+forced-hosts:
+  "lobby.example.com":
+    - "lobby"
+  "factions.example.com":
+    - "factions"
+  "minigames.example.com":
+    - "minigames"
+
+# Core proxy networking and performance settings.
+advanced:
+  compression-threshold: 256
+  compression-level: -1
+  login-ratelimit: 3000
+  connection-timeout: 5000
+  read-timeout: 30000
+  haproxy-protocol: false
+  tcp-fast-open: false
+  bungee-plugin-message-channel: true
+  show-ping-requests: false
+  failover-on-unexpected-server-disconnect: true
+  announce-proxy-commands: true
+  log-command-executions: false
+  log-player-connections: true
+  accepts-transfers: false
+  enable-reuse-port: false
+  command-rate-limit: 50
+  forward-commands-if-rate-limited: true
+  kick-after-rate-limited-commands: 0
+  tab-complete-rate-limit: 10
+  kick-after-rate-limited-tab-completes: 0
+
+# Query protocol settings.
+query:
+  enabled: false
+  port: 25565
+  map: "Flarecord"
+  show-plugins: false
+
+# Metrics collection.
+metrics:
+  enabled: true

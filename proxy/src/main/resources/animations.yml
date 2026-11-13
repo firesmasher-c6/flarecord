@@ -1,0 +1,17 @@
+# Flarecord actionbar animation definitions
+# Each animation can be reused by name from the Flarecord runtime.
+# Frames are sent with MiniMessage formatting and a per-frame scheduling delay.
+
+animations:
+  default:
+    duration-ms: 500
+    frames:
+      - "<aqua>Loading server...</aqua>"
+      - "<blue>Loading server...</blue>"
+      - "<dark_aqua>Loading server...</dark_aqua>"
+
+  welcome:
+    duration-ms: 1250
+    frames:
+      - "<gold>Welcome to the network!</gold>"
+      - "<yellow>Welcome to the network!</yellow>"

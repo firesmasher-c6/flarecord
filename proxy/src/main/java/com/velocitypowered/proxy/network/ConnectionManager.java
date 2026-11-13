@@ -42,6 +42,7 @@ import java.net.InetSocketAddress;
 import java.net.http.HttpClient;
 import java.util.Collection;
 import java.util.Map;
+import me.firesmasher.flarecord.performance.FlarecordThreading;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -76,8 +77,9 @@ public final class ConnectionManager {
   public ConnectionManager(VelocityServer server) {
     this.server = server;
     this.transportType = TransportType.bestType();
-    this.bossGroup = this.transportType.createEventLoopGroup(TransportType.Type.BOSS);
-    this.workerGroup = this.transportType.createEventLoopGroup(TransportType.Type.WORKER);
+    this.bossGroup = this.transportType.createEventLoopGroup(TransportType.Type.BOSS, 1);
+    this.workerGroup = this.transportType.createEventLoopGroup(TransportType.Type.WORKER,
+        FlarecordThreading.workerThreadCount());
     this.serverChannelInitializer = new ServerChannelInitializerHolder(
         new ServerChannelInitializer(this.server));
     this.backendChannelInitializer = new BackendChannelInitializerHolder(
@@ -88,6 +90,9 @@ public final class ConnectionManager {
   public void logChannelInformation() {
     LOGGER.info("Connections will use {} channels, {} compression, {} ciphers", this.transportType,
         Natives.compress.getLoadedVariant(), Natives.cipher.getLoadedVariant());
+    LOGGER.info("Netty event loops: {} acceptor, {} worker threads",
+        ((MultithreadEventExecutorGroup) this.bossGroup).executorCount(),
+        ((MultithreadEventExecutorGroup) this.workerGroup).executorCount());
   }
 
   /**

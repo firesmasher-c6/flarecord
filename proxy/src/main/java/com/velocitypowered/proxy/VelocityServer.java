@@ -69,6 +69,10 @@ import com.velocitypowered.proxy.util.ResourceUtils;
 import com.velocitypowered.proxy.util.VelocityChannelRegistrar;
 import com.velocitypowered.proxy.util.ratelimit.Ratelimiter;
 import com.velocitypowered.proxy.util.ratelimit.Ratelimiters;
+import me.firesmasher.flarecord.Flarecord;
+import me.firesmasher.flarecord.command.FlarecordCommand;
+import me.firesmasher.flarecord.runtime.FlarecordRuntime;
+import me.firesmasher.flarecord.setup.Setups;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
@@ -156,6 +160,7 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
   private final ConnectionManager cm;
   private final ProxyOptions options;
   private @MonotonicNonNull VelocityConfiguration configuration;
+  private @MonotonicNonNull FlarecordRuntime flarecordRuntime;
   private @MonotonicNonNull KeyPair serverKeyPair;
   private final ServerMap servers;
   private final VelocityCommandManager commandManager;
@@ -197,29 +202,26 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
     return this.configuration;
   }
 
+  public FlarecordRuntime getFlarecordRuntime() {
+    return Objects.requireNonNull(flarecordRuntime, "Flarecord runtime has not been loaded");
+  }
+
   @Override
   public ProxyVersion getVersion() {
     Package pkg = VelocityServer.class.getPackage();
-    String implName;
-    String implVersion;
-    String implVendor;
+    String implVersion = Flarecord.VERSION;
+    String implVendor = Flarecord.VENDOR;
     if (pkg != null) {
-      implName = MoreObjects.firstNonNull(pkg.getImplementationTitle(), "Velocity");
-      implVersion = MoreObjects.firstNonNull(pkg.getImplementationVersion(), "<unknown>");
-      implVendor = MoreObjects.firstNonNull(pkg.getImplementationVendor(), "Velocity Contributors");
-    } else {
-      implName = "Velocity";
-      implVersion = "<unknown>";
-      implVendor = "Velocity Contributors";
+      implVersion = MoreObjects.firstNonNull(pkg.getImplementationVersion(), implVersion);
+      implVendor = MoreObjects.firstNonNull(pkg.getImplementationVendor(), implVendor);
     }
-
-    return new ProxyVersion(implName, implVendor, implVersion);
+    return new ProxyVersion(Flarecord.NAME, implVendor, implVersion);
   }
 
   private VelocityPluginContainer createVirtualPlugin() {
     ProxyVersion version = getVersion();
     PluginDescription description = new VelocityPluginDescription(
-        "velocity", version.getName(), version.getVersion(), "The Velocity proxy",
+        "velocity", version.getName(), version.getVersion(), "The Flarecord proxy",
             version.getName().equals("Velocity") ? VELOCITY_URL : null,
             ImmutableList.of(version.getVendor()), Collections.emptyList(),
             Collections.emptyList(), null);
@@ -403,19 +405,27 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
   @SuppressFBWarnings("DM_EXIT")
   private void doStartupConfigLoad() {
     try {
-      Path configPath = Path.of("velocity.toml");
+      Setups.bootstrap(Path.of("."));
+      Path configPath = Setups.resolvePreferredConfigPath(Path.of("."));
       configuration = VelocityConfiguration.read(configPath);
 
       if (!configuration.validate()) {
-        logger.error("Your configuration is invalid. Velocity will not start up until the errors "
+        logger.error("Your configuration is invalid. Flarecord will not start up until the errors "
             + "are resolved.");
         LogManager.shutdown();
         System.exit(1);
       }
 
+      flarecordRuntime = FlarecordRuntime.load(Path.of("."));
+      commandManager.register(
+          commandManager.metaBuilder("flarecord")
+              .plugin(VelocityVirtualPlugin.INSTANCE)
+              .build(),
+          new FlarecordCommand(flarecordRuntime)
+      );
       commandManager.setAnnounceProxyCommands(configuration.isAnnounceProxyCommands());
     } catch (Exception e) {
-      logger.error("Unable to read/load/save your velocity.toml. The server will shut down.", e);
+      logger.error("Unable to read/load/save your Flarecord configuration. The server will shut down.", e);
       LogManager.shutdown();
       System.exit(1);
     }
@@ -481,7 +491,8 @@ public class VelocityServer implements ProxyServer, ForwardingAudience {
    * @throws IOException if we can't read {@code velocity.toml}
    */
   public boolean reloadConfiguration() throws IOException {
-    Path configPath = Path.of("velocity.toml");
+    Setups.bootstrap(Path.of("."));
+    Path configPath = Setups.resolvePreferredConfigPath(Path.of("."));
     VelocityConfiguration newConfiguration = VelocityConfiguration.read(configPath);
 
     if (!newConfiguration.validate()) {

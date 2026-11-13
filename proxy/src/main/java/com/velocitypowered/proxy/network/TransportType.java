@@ -98,8 +98,23 @@ public enum TransportType {
    * @return the event loop group
    */
   public EventLoopGroup createEventLoopGroup(final Type type) {
-    return new MultiThreadIoEventLoopGroup(
-        0, createThreadFactory(this.name, type), this.ioHandlerFactorySupplier.get());
+    return createEventLoopGroup(type, 0);
+  }
+
+  /**
+   * Creates a new event loop group with an explicit thread count. A count of zero uses Netty's
+   * processor-aware default.
+   *
+   * @param type the event loop group type
+   * @param threadCount the number of threads, or zero for Netty's default
+   * @return the event loop group
+   */
+  public EventLoopGroup createEventLoopGroup(final Type type, final int threadCount) {
+    if (threadCount < 0) {
+      throw new IllegalArgumentException("Thread count cannot be negative");
+    }
+    return new MultiThreadIoEventLoopGroup(threadCount, createThreadFactory(this.name, type),
+        this.ioHandlerFactorySupplier.get());
   }
 
   private static ThreadFactory createThreadFactory(final String name, final Type type) {

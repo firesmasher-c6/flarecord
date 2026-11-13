@@ -49,6 +49,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
+import org.yaml.snakeyaml.Yaml;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.apache.logging.log4j.LogManager;
@@ -488,6 +489,11 @@ public class VelocityConfiguration implements ProxyConfig {
   @SuppressFBWarnings(value = "RCN_REDUNDANT_NULLCHECK_WOULD_HAVE_BEEN_A_NPE",
       justification = "I looked carefully and there's no way SpotBugs is right.")
   public static VelocityConfiguration read(Path path) throws IOException {
+    if (path.getFileName() != null && (path.getFileName().toString().endsWith(".yml")
+        || path.getFileName().toString().endsWith(".yaml"))) {
+      return parseConfig(readYamlConfiguration(path));
+    }
+
     URL defaultConfigLocation = VelocityConfiguration.class.getClassLoader()
         .getResource("default-velocity.toml");
     if (defaultConfigLocation == null) {
@@ -524,85 +530,111 @@ public class VelocityConfiguration implements ProxyConfig {
           migration.migrate(config, logger);
         }
       }
-
-      String forwardingSecretString = System.getenv().getOrDefault(
-              "VELOCITY_FORWARDING_SECRET", "");
-      if (forwardingSecretString.isBlank()) {
-        final String forwardSecretFile = config.get("forwarding-secret-file");
-        final Path secretPath = forwardSecretFile == null
-                ? defaultForwardingSecretPath
-                : Path.of(forwardSecretFile);
-        if (Files.exists(secretPath)) {
-          if (Files.isRegularFile(secretPath)) {
-            forwardingSecretString = String.join("", Files.readAllLines(secretPath));
-          } else {
-            throw new RuntimeException(
-                    "The file " + forwardSecretFile + " is not a valid file or it is a directory.");
-          }
-        } else {
-          Files.createFile(secretPath);
-          Files.writeString(secretPath, forwardingSecretString = generateRandomString(12),
-              StandardCharsets.UTF_8);
-          logger.info("The forwarding-secret-file does not exist. A new file has been created at {}",
-              forwardSecretFile);
-        }
-      }
-      final byte[] forwardingSecret = forwardingSecretString.getBytes(StandardCharsets.UTF_8);
-      final String motd = config.getOrElse("motd", "<#09add3>A Velocity Server");
-
-      // Read the rest of the config
-      final CommentedConfig serversConfig = config.get("servers");
-      final CommentedConfig forcedHostsConfig = config.get("forced-hosts");
-      final CommentedConfig advancedConfig = config.get("advanced");
-      final CommentedConfig queryConfig = config.get("query");
-      final CommentedConfig metricsConfig = config.get("metrics");
-      final PlayerInfoForwarding forwardingMode = config.getEnumOrElse(
-              "player-info-forwarding-mode", PlayerInfoForwarding.NONE);
-      final PingPassthroughMode pingPassthrough = PingPassthroughMode.fromConfig(config.get("ping-passthrough"));
-      final boolean samplePlayersInPing = config.getOrElse("sample-players-in-ping", false);
-
-      final String bind = config.getOrElse("bind", "0.0.0.0:25565");
-      final int maxPlayers = config.getIntOrElse("show-max-players", 500);
-      final boolean onlineMode = config.getOrElse("online-mode", true);
-      final boolean forceKeyAuthentication = config.getOrElse("force-key-authentication", true);
-      final boolean announceForge = config.getOrElse("announce-forge", true);
-      final boolean preventClientProxyConnections = config.getOrElse(
-              "prevent-client-proxy-connections", false);
-      final boolean kickExisting = config.getOrElse("kick-existing-players", false);
-      final boolean enablePlayerAddressLogging = config.getOrElse(
-              "enable-player-address-logging", true);
-      final PacketLimiterConfig packetLimiterConfig = PacketLimiterConfig.fromConfig(config.get("packet-limiter"));
-
-      // Throw an exception if the forwarding-secret file is empty and the proxy is using a
-      // forwarding mode that requires it.
-      if (forwardingSecret.length == 0
-              && (forwardingMode == PlayerInfoForwarding.MODERN
-              || forwardingMode == PlayerInfoForwarding.BUNGEEGUARD)) {
-        throw new RuntimeException("The forwarding-secret file must not be empty.");
-      }
-
-      return new VelocityConfiguration(
-              bind,
-              motd,
-              maxPlayers,
-              onlineMode,
-              preventClientProxyConnections,
-              announceForge,
-              forwardingMode,
-              forwardingSecret,
-              kickExisting,
-              pingPassthrough,
-              samplePlayersInPing,
-              enablePlayerAddressLogging,
-              new Servers(serversConfig),
-              new ForcedHosts(forcedHostsConfig),
-              new Advanced(advancedConfig),
-              new Query(queryConfig),
-              new Metrics(metricsConfig),
-              forceKeyAuthentication,
-              packetLimiterConfig
-      );
+      return parseConfig(config);
     }
+  }
+
+  private static CommentedConfig readYamlConfiguration(Path path) throws IOException {
+    final Yaml yaml = new Yaml();
+    final Object root = yaml.load(Files.newBufferedReader(path, StandardCharsets.UTF_8));
+    final CommentedConfig config = CommentedConfig.inMemory();
+    if (root instanceof Map<?, ?> map) {
+      populateConfig(config, map);
+      return config;
+    }
+    return config;
+  }
+
+  private static void populateConfig(CommentedConfig config, Map<?, ?> map) {
+    for (Map.Entry<?, ?> entry : map.entrySet()) {
+      final String keyName = String.valueOf(entry.getKey());
+      final Object value = entry.getValue();
+      if (value instanceof Map<?, ?> nestedMap) {
+        final CommentedConfig nestedConfig = CommentedConfig.inMemory();
+        populateConfig(nestedConfig, nestedMap);
+        config.set(List.of(keyName), nestedConfig);
+      } else {
+        config.set(List.of(keyName), value);
+      }
+    }
+  }
+
+  private static VelocityConfiguration parseConfig(CommentedConfig config) throws IOException {
+    String forwardingSecretString = System.getenv().getOrDefault(
+            "VELOCITY_FORWARDING_SECRET", "");
+    final Path defaultForwardingSecretPath = Path.of("forwarding.secret");
+    if (forwardingSecretString.isBlank()) {
+      final String forwardSecretFile = config.get("forwarding-secret-file");
+      final Path secretPath = forwardSecretFile == null
+              ? defaultForwardingSecretPath
+              : Path.of(forwardSecretFile);
+      if (Files.exists(secretPath)) {
+        if (Files.isRegularFile(secretPath)) {
+          forwardingSecretString = String.join("", Files.readAllLines(secretPath));
+        } else {
+          throw new RuntimeException(
+                  "The file " + forwardSecretFile + " is not a valid file or it is a directory.");
+        }
+      } else {
+        Files.createFile(secretPath);
+        Files.writeString(secretPath, forwardingSecretString = generateRandomString(12),
+            StandardCharsets.UTF_8);
+        logger.info("The forwarding-secret-file does not exist. A new file has been created at {}",
+            forwardSecretFile);
+      }
+    }
+    final byte[] forwardingSecret = forwardingSecretString.getBytes(StandardCharsets.UTF_8);
+    final String motd = config.getOrElse("motd", "<#09add3>A Velocity Server");
+
+    final CommentedConfig serversConfig = config.get("servers");
+    final CommentedConfig forcedHostsConfig = config.get("forced-hosts");
+    final CommentedConfig advancedConfig = config.get("advanced");
+    final CommentedConfig queryConfig = config.get("query");
+    final CommentedConfig metricsConfig = config.get("metrics");
+    final PlayerInfoForwarding forwardingMode = config.getEnumOrElse(
+            "player-info-forwarding-mode", PlayerInfoForwarding.NONE);
+    final PingPassthroughMode pingPassthrough = PingPassthroughMode.fromConfig(config.get("ping-passthrough"));
+    final boolean samplePlayersInPing = config.getOrElse("sample-players-in-ping", false);
+
+    final String bind = config.getOrElse("bind", "0.0.0.0:25565");
+    final int maxPlayers = config.getIntOrElse("show-max-players", 500);
+    final boolean onlineMode = config.getOrElse("online-mode", true);
+    final boolean forceKeyAuthentication = config.getOrElse("force-key-authentication", true);
+    final boolean announceForge = config.getOrElse("announce-forge", true);
+    final boolean preventClientProxyConnections = config.getOrElse(
+            "prevent-client-proxy-connections", false);
+    final boolean kickExisting = config.getOrElse("kick-existing-players", false);
+    final boolean enablePlayerAddressLogging = config.getOrElse(
+            "enable-player-address-logging", true);
+    final PacketLimiterConfig packetLimiterConfig = PacketLimiterConfig.fromConfig(config.get("packet-limiter"));
+
+    if (forwardingSecret.length == 0
+            && (forwardingMode == PlayerInfoForwarding.MODERN
+            || forwardingMode == PlayerInfoForwarding.BUNGEEGUARD)) {
+      throw new RuntimeException("The forwarding-secret file must not be empty.");
+    }
+
+    return new VelocityConfiguration(
+        bind,
+        motd,
+        maxPlayers,
+        onlineMode,
+        preventClientProxyConnections,
+        announceForge,
+        forwardingMode,
+        forwardingSecret,
+        kickExisting,
+        pingPassthrough,
+        samplePlayersInPing,
+        enablePlayerAddressLogging,
+        new Servers(serversConfig),
+        new ForcedHosts(forcedHostsConfig),
+        new Advanced(advancedConfig),
+        new Query(queryConfig),
+        new Metrics(metricsConfig),
+        forceKeyAuthentication,
+        packetLimiterConfig
+    );
   }
 
   /**
@@ -699,11 +731,7 @@ public class VelocityConfiguration implements ProxyConfig {
 
   private static class ForcedHosts {
 
-    private Map<String, List<String>> forcedHosts = ImmutableMap.of(
-        "lobby.example.com", ImmutableList.of("lobby"),
-        "factions.example.com", ImmutableList.of("factions"),
-        "minigames.example.com", ImmutableList.of("minigames")
-    );
+    private Map<String, List<String>> forcedHosts = ImmutableMap.of();
 
     private ForcedHosts() {
     }

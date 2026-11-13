@@ -13,6 +13,10 @@ application {
     applicationDefaultJvmArgs += listOf("-Dvelocity.packet-decode-logging=true")
 }
 
+base {
+    archivesName.set("flarecord")
+}
+
 tasks {
     withType<Checkstyle> {
         exclude("**/com/velocitypowered/proxy/protocol/packet/**")
@@ -20,8 +24,8 @@ tasks {
 
     jar {
         manifest {
-            attributes["Implementation-Title"] = "Velocity"
-            attributes["Implementation-Vendor"] = "Velocity Contributors"
+            attributes["Implementation-Title"] = "Flarecord"
+            attributes["Implementation-Vendor"] = "Flarecord Contributors"
             attributes["Multi-Release"] = "true"
         }
     }
@@ -66,11 +70,11 @@ tasks {
 
 val projectVersion = version as String
 fill {
-    project("velocity")
+    project("flarecord")
 
     build {
         channel = if (projectVersion.endsWith("-SNAPSHOT")) BuildChannel.BETA else BuildChannel.STABLE
-        versionFamily("4.0.0")
+        versionFamily("1.0.0")
         version(projectVersion)
 
         if (versionFamily.get().split(".")[0] != projectVersion.split(".")[0]) {
@@ -107,6 +111,7 @@ dependencies {
     implementation(variantOf(libs.netty.transport.native.kqueue) { classifier("osx-aarch_64") })
 
     implementation(libs.jopt)
+    implementation(libs.snakeyaml)
     implementation(libs.terminalconsoleappender)
     runtimeOnly(libs.jline)
     runtimeOnly(libs.disruptor)
