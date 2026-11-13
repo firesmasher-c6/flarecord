@@ -15,8 +15,9 @@ easier setup, clearer configuration, recognizable Flarecord branding, and a
 small set of built-in connection protections. It is not a replacement for a
 network-wide Redis system or a dedicated DDoS mitigation service.
 
-> Flarecord is an early release. Read [Feature availability](#feature-availability)
-> before choosing it for a production network.
+> Flarecord 1.0.0 is the first release. Read
+> [Feature availability](#feature-availability) before choosing it for a
+> production network.
 
 ## What Flarecord offers
 
@@ -58,11 +59,11 @@ Read the documentation for the specific version you plan to run:
 
 ## Download and install
 
-Flarecord builds are published by
-[GitHub Actions](https://github.com/firesmasher-c6/flarecord/actions/workflows/gradle.yml?query=branch%3Adev%2F1.0.0).
-Open a successful run on the `dev/1.0.0` branch and download its build artifact.
-GitHub Actions artifacts are temporary; there is not yet a permanent Flarecord
-release download.
+Download the latest JAR from the
+[Flarecord releases](https://github.com/firesmasher-c6/flarecord/releases) page.
+Build artifacts from
+[GitHub Actions](https://github.com/firesmasher-c6/flarecord/actions/workflows/gradle.yml?query=branch%3Adev%2F1.0.0)
+are also available for a limited time after each successful build.
 
 1. Install a supported Java runtime. Java 21 or newer is recommended.
 2. Put the Flarecord proxy JAR in its own server directory.

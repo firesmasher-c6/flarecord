@@ -1,6 +1,7 @@
 name: Flarecord JAR
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - dev/1.0.0
